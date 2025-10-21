@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "439081069385",
+    "project_id": "soul-chaser-4a10c",
+    "storage_bucket": "soul-chaser-4a10c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:439081069385:android:2ca097cd8708da8d2e4898",
+        "android_client_info": {
+          "package_name": "com.example.soul_chaser_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqbys0_mf2v_8YvGcDYMnWWZh-soFjzbg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
