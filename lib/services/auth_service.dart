@@ -1,63 +1,49 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+/// Represents a signed-in app user
 class AppUser {
   final String email;
   final String? displayName;
 
   const AppUser(this.email, {this.displayName});
 
-
-  factory AppUser.withDisplayName(String email, String name) {
-    return AppUser(email, displayName: name);
+  factory AppUser.fromFirebase(User user) {
+    return AppUser(
+      user.email ?? '',
+      displayName: user.displayName,
+    );
   }
 }
 
+/// AuthService: signup, login, logout, and auth state management
 class AuthService with ChangeNotifier {
-  static const _usersKey = 'sc_users_v1';
-  static const _currentKey = 'sc_current_user_v1';
-  late SharedPreferences _sp;
-  bool loading = true;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   AppUser? currentUser;
+  bool loading = true;
 
-  // Initialize auth service
+  /// Initialize auth state
   Future<void> init() async {
-    try {
-      _sp = await SharedPreferences.getInstance();
-      final userData = _sp.getString(_currentKey);
+    loading = true;
+    notifyListeners();
 
-      if (userData != null) {
-        final userJson = jsonDecode(userData) as Map<String, dynamic>;
-        currentUser = AppUser(
-          userJson['email'],
-          displayName: userJson['displayName'],
-        );
-      }
-    } catch (e) {
-      debugPrint('Error initializing auth: $e');
-    } finally {
+    // Immediately set currentUser if already signed in
+    final user = _auth.currentUser;
+    if (user != null) currentUser = AppUser.fromFirebase(user);
+
+    // Listen for auth state changes
+    _auth.authStateChanges().listen((user) {
+      currentUser = user != null ? AppUser.fromFirebase(user) : null;
       loading = false;
       notifyListeners();
-    }
+    });
+
+    loading = false;
+    notifyListeners();
   }
 
-  Map<String, dynamic> _loadUsers() {
-    final raw = _sp.getString(_usersKey);
-    if (raw == null) return {};
-    return jsonDecode(raw) as Map<String, dynamic>;
-  }
-
-  Future<void> _saveUsers(Map<String, dynamic> users) async {
-    await _sp.setString(_usersKey, jsonEncode(users));
-  }
-
-  String _hash(String input) {
-    final bytes = utf8.encode(input);
-    return sha256.convert(bytes).toString();
-  }
-
+  /// Sign up with email & password
   Future<String?> signup({
     required String email,
     required String password,
@@ -67,35 +53,29 @@ class AuthService with ChangeNotifier {
       loading = true;
       notifyListeners();
 
-      final users = _loadUsers();
-      final key = email.trim().toLowerCase();
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
 
-      if (users.containsKey(key)) {
-        return 'Account already exists for this email';
+      if (credential.user != null) {
+        await credential.user!
+            .updateDisplayName(displayName ?? email.split('@').first);
+        currentUser = AppUser.fromFirebase(credential.user!);
       }
 
-      users[key] = {
-        'passwordHash': _hash(password),
-        'displayName': displayName ?? email.split('@').first,
-      };
-
-      await _saveUsers(users);
-      currentUser = AppUser.withDisplayName(key, displayName ?? email.split('@').first);
-      await _sp.setString(_currentKey, jsonEncode({
-        'email': key,
-        'displayName': displayName ?? email.split('@').first,
-      }));
-
-      return null;
+      return null; // success
+    } on FirebaseAuthException catch (e) {
+      return e.message ?? 'Signup failed';
     } catch (e) {
-      debugPrint('Signup error: $e');
-      return 'An error occurred during signup';
+      return 'Unexpected error: $e';
     } finally {
       loading = false;
       notifyListeners();
     }
   }
 
+  /// Login with email & password
   Future<String?> login({
     required String email,
     required String password,
@@ -104,43 +84,52 @@ class AuthService with ChangeNotifier {
       loading = true;
       notifyListeners();
 
-      final users = _loadUsers();
-      final key = email.trim().toLowerCase();
-
-      if (!users.containsKey(key)) return 'No account found for this email';
-      if (users[key]['passwordHash'] != _hash(password)) {
-        return 'Incorrect password';
-      }
-
-      currentUser = AppUser(
-        key,
-        displayName: users[key]['displayName'],
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
       );
 
-      await _sp.setString(_currentKey, jsonEncode({
-        'email': key,
-        'displayName': users[key]['displayName'],
-      }));
+      if (credential.user != null) {
+        currentUser = AppUser.fromFirebase(credential.user!);
+      }
 
-      return null;
+      return null; // success
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'user-not-found':
+          return 'No user found for that email.';
+        case 'wrong-password':
+          return 'Incorrect password.';
+        case 'invalid-email':
+          return 'Invalid email address.';
+        case 'user-disabled':
+          return 'This account has been disabled.';
+        default:
+          return e.message ?? 'Login failed';
+      }
     } catch (e) {
-      debugPrint('Login error: $e');
-      return 'An error occurred during login';
+      return 'Unexpected error: $e';
     } finally {
       loading = false;
       notifyListeners();
     }
   }
 
+  /// Logout
   Future<void> logout() async {
     try {
       loading = true;
       notifyListeners();
+      await _auth.signOut();
       currentUser = null;
-      await _sp.remove(_currentKey);
+    } catch (e) {
+      debugPrint('Logout error: $e');
     } finally {
       loading = false;
       notifyListeners();
     }
   }
+
+  /// Is user logged in?
+  bool get isLoggedIn => currentUser != null;
 }

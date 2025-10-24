@@ -32,14 +32,14 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     FocusScope.of(context).unfocus();
 
-    try {
-      final auth = context.read<AuthService>();
-      final error = await auth.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+    final auth = context.read<AuthService>();
+    final error = await auth.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+    );
 
-      if (error != null) {
+    if (error != null) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error),
@@ -47,14 +47,17 @@ class _LoginScreenState extends State<LoginScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-      } else {
-        Navigator.pushReplacementNamed(context, HomeShell.route);
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    } else {
+      // ✅ Wait until AuthService updates currentUser
+      auth.init().then((_) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      });
     }
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
@@ -97,7 +100,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
                   // Login Card
                   Container(
                     constraints: const BoxConstraints(maxWidth: 400),
@@ -127,7 +129,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 30),
-
                           // Email Field
                           TextFormField(
                             controller: _emailController,
@@ -148,14 +149,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter your email';
                               }
-                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                  .hasMatch(value)) {
                                 return 'Please enter a valid email';
                               }
                               return null;
                             },
                           ),
                           const SizedBox(height: 20),
-
                           // Password Field
                           TextFormField(
                             controller: _passwordController,
@@ -170,7 +171,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                       : Icons.visibility_off,
                                   color: Colors.orange,
                                 ),
-                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                onPressed: () =>
+                                    setState(() => _obscurePassword = !_obscurePassword),
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -192,7 +194,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                           ),
                           const SizedBox(height: 30),
-
                           // Login Button
                           SizedBox(
                             width: double.infinity,
@@ -219,7 +220,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 20),
-
                           // Signup Link
                           TextButton(
                             onPressed: () => Navigator.pushReplacementNamed(

@@ -48,17 +48,25 @@ class _SignupScreenState extends State<SignupScreen> {
       password: _password.text.trim(),
     );
 
-    setState(() => _busy = false);
     if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(err),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(err),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } else {
-      Navigator.pushReplacementNamed(context, HomeShell.route);
+      // ✅ Wait until AuthService updates currentUser
+      auth.init().then((_) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      });
     }
+
+    if (mounted) setState(() => _busy = false);
   }
 
   @override
@@ -137,8 +145,10 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
                       const SizedBox(height: 30),
+                      // Email Field
                       TextField(
                         controller: _email,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           labelText: 'Email',
                           prefixIcon: Icon(Icons.email, color: Colors.orange),
@@ -153,6 +163,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
+                      // Password Field
                       TextField(
                         controller: _password,
                         obscureText: _obscurePassword,
@@ -180,6 +191,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
+                      // Confirm Password Field
                       TextField(
                         controller: _confirm,
                         obscureText: _obscureConfirm,
@@ -207,6 +219,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
                       const SizedBox(height: 30),
+                      // Signup Button
                       SizedBox(
                         width: double.infinity,
                         height: 50,
@@ -232,6 +245,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
+                      // Login Link
                       TextButton(
                         onPressed: () => Navigator.pushReplacementNamed(
                             context, LoginScreen.route),

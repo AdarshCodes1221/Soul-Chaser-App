@@ -1,17 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:soul_chaser_flutter/services/auth_service.dart';
-import 'package:soul_chaser_flutter/screens/services/progress_service.dart'; // Updated import path
-import 'package:soul_chaser_flutter/screens/auth/login_screen.dart';
-import 'package:soul_chaser_flutter/screens/auth/signup_screen.dart';
-import 'package:soul_chaser_flutter/screens/home/home_shell.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() async {
-  // Ensure Flutter binding is initialized
+import 'services/auth_service.dart';
+import 'screens/services/progress_service.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/auth/signup_screen.dart';
+import 'screens/home/home_shell.dart';
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set preferred orientations
+  // ✅ Initialize Firebase only once
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      debugPrint('Firebase initialized successfully.');
+    } else {
+      debugPrint('Firebase already initialized.');
+    }
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
+  }
+
+  // Lock orientation
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -20,12 +36,8 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => AuthService()..init(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => ProgressService(), // Add ProgressService
-        ),
+        ChangeNotifierProvider(create: (_) => AuthService()..init()),
+        ChangeNotifierProvider(create: (_) => ProgressService()),
       ],
       child: const SoulChaserApp(),
     ),
@@ -49,9 +61,9 @@ class SoulChaserApp extends StatelessWidget {
       ),
       home: const AuthWrapper(),
       routes: {
-        '/login': (context) => const LoginScreen(),
-        '/signup': (context) => const SignupScreen(),
-        '/home': (context) => const HomeShell(),
+        '/login': (_) => const LoginScreen(),
+        '/signup': (_) => const SignupScreen(),
+        '/home': (_) => const HomeShell(),
       },
     );
   }
@@ -64,9 +76,7 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
 
-    if (authService.loading) {
-      return const SplashScreen();
-    }
+    if (authService.loading) return const SplashScreen();
 
     return authService.currentUser == null
         ? const LoginScreen()
@@ -84,11 +94,10 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Replace with your app logo
             const FlutterLogo(size: 100),
             const SizedBox(height: 20),
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
+              valueColor: AlwaysStoppedAnimation(
                 Theme.of(context).primaryColor,
               ),
             ),
